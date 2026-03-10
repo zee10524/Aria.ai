@@ -1,0 +1,25 @@
+[
+  {
+    "id": 101,
+    "channelId": "1",
+    "type": "user",
+    "author": "Sarah Jenkins",
+    "time": "10:42 AM",
+    "content": "I'm hitting a CORS error when trying to fetch from the new API endpoint."
+  },
+  {
+    "id": 102,
+    "channelId": "1",
+    "type": "ai",
+    "author": "ARIA AI Assistant",
+    "model": "gpt-4-turbo",
+    "time": "10:43 AM",
+    "content": {
+      "text": "It looks like the CORS headers might be missing.",
+      "code": {
+        "filename": "next.config.js",
+        "body": "module.exports = { async headers() { return [] } }"
+      }
+    }
+  }
+]

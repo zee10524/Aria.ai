@@ -1,0 +1,52 @@
+{
+  "user": {
+    "name": "Alex",
+    "status": "System Online"
+  },
+  "stats": [
+      {
+      "title": "Active Sessions",
+      "value": "12",
+      "sub": "+2 from yesterday",
+      "icon": "timer"
+    },
+    {
+      "title": "Total Members",
+      "value": "1,420",
+      "sub": "Across 5 rooms",
+      "icon": "group"
+    },
+    {
+      "title": "Pull Requests",
+      "value": "8",
+      "sub": "Pending review",
+      "icon": "merge"
+    }
+  ],
+  "rooms": [
+    {
+      "title": "Frontend Architecture",
+      "lastActive": "2m ago",
+      "description": "Discussion on micro-frontends and state management strategies.",
+      "tags": ["React", "TypeScript"],
+      "online": "8 Online",
+      "color": "blue"
+    },
+    {
+      "title": "Backend Scalability",
+      "lastActive": "1h ago",
+      "description": "Optimizing database queries and Redis caching layers.",
+      "tags": ["Node.js", "Redis", "Postgres"],
+      "online": "2 Online",
+      "color": "green"
+    },
+    {
+      "title": "AI Model Training",
+      "lastActive": "Just now",
+      "description": "Fine-tuning LLM for better code generation accuracy.",
+      "tags": ["Python", "PyTorch"],
+      "online": "15 Online",
+      "color": "purple"
+    }
+  ]
+}

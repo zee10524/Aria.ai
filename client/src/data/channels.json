@@ -1,0 +1,6 @@
+[
+  { "id": "1", "name": "general-dev", "type": "public" },
+  { "id": "2", "name": "deployments", "type": "public" },
+  { "id": "3", "name": "bug-tracking", "type": "public", "unread": 3 },
+  { "id": "4", "name": "admin-logs", "type": "private" }
+]
