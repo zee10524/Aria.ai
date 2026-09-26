@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { motion, useReducedMotion, useScroll, useTransform } from "framer-motion";
+import { motion, useReducedMotion, useScroll, useTransform } from "framer-motion"; // eslint-disable-line no-unused-vars
 import MatrixRain from "../components/ui/MatrixRain";
 import CodeWindow from "../components/ui/CodeWindow";
 import BitFlipText from "../components/ui/BitFlipText";
@@ -87,15 +87,12 @@ export default function LandingPage() {
             </div>
 
             <div className="hidden md:flex space-x-8 text-sm font-medium">
-              {["Features", "Integrations", "Pricing", "Docs"].map((item) => (
-                <a
-                  key={item}
-                  href="#"
-                  className="hover:text-primary transition-colors" style={{ color: dark ? '#d1d5db' : '#374151' }}
-                >
-                  {item}
-                </a>
-              ))}
+              <a
+                href="#features"
+                className="hover:text-primary transition-colors" style={{ color: dark ? '#d1d5db' : '#374151' }}
+              >
+                Features
+              </a>
             </div>
 
             <div className="flex items-center gap-4">
@@ -112,7 +109,7 @@ export default function LandingPage() {
                 Sign In
               </a>
 
-              <a className="bg-primary hover:bg-primary-dark text-black px-4 py-2 rounded-md text-sm font-bold shadow-[0_0_15px_rgba(223,255,94,0.3)] hover:shadow-[0_0_25px_rgba(223,255,94,0.5)] transition">
+              <a href="/signup" className="bg-primary hover:bg-primary-dark text-black px-4 py-2 rounded-md text-sm font-bold shadow-[0_0_15px_rgba(223,255,94,0.3)] hover:shadow-[0_0_25px_rgba(223,255,94,0.5)] transition">
                 Get Started
               </a>
             </div>
@@ -187,6 +184,7 @@ export default function LandingPage() {
                 <motion.a
                   whileHover={shouldReduceMotion ? undefined : { y: -2, scale: 1.02 }}
                   whileTap={shouldReduceMotion ? undefined : { scale: 0.98 }}
+                  href="/login"
                   className="px-8 py-4 border rounded-lg text-center"
                   style={{
                     backgroundColor: dark ? "rgba(255,255,255,0.05)" : "#ffffff",
@@ -198,26 +196,6 @@ export default function LandingPage() {
                 </motion.a>
               </motion.div>
 
-              {/* Inline stats */}
-              <motion.div
-                variants={fadeUp}
-                className="flex items-center gap-6 text-sm mt-2"
-                style={{ color: dark ? "#6b7280" : "#9ca3af" }}
-              >
-                {[["50k+", "Developers"], ["200+", "Integrations"], ["99.9%", "Uptime"]].map(
-                  ([num, label]) => (
-                    <div key={label} className="text-center">
-                      <div
-                        className="font-bold text-base font-mono"
-                        style={{ color: dark ? "#DFFF5E" : "#4F5D2F" }}
-                      >
-                        {num}
-                      </div>
-                      <div className="text-xs">{label}</div>
-                    </div>
-                  )
-                )}
-              </motion.div>
             </motion.div>
 
             {/* RIGHT: Live Code Window */}
@@ -310,6 +288,7 @@ export default function LandingPage() {
 
       {/* ================= FEATURES ================= */}
       <motion.section
+        id="features"
         initial="hidden"
         whileInView="show"
         viewport={{ once: true, amount: 0.2 }}
@@ -508,11 +487,12 @@ export default function LandingPage() {
           </motion.div>
 
           <motion.div variants={fadeUp} className="flex items-center gap-6 text-sm" style={{ color: dark ? "#9ca3af" : "#4b5563" }}>
-            {["Privacy", "Terms", "Docs"].map((item) => (
-              <a key={item} href="#" className="hover:text-primary transition-colors">
-                {item}
-              </a>
-            ))}
+            <a href="#features" className="hover:text-primary transition-colors">
+              Features
+            </a>
+            <a href="/signup" className="hover:text-primary transition-colors">
+              Sign Up
+            </a>
           </motion.div>
 
           <motion.p variants={fadeUp} className="text-sm font-mono" style={{ color: dark ? "#6b7280" : "#6b7280" }}>

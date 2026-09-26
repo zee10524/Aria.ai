@@ -10,7 +10,7 @@
     "start": "node index.js",
     "predev": "powershell -NoProfile -Command \"Get-NetTCPConnection -LocalPort 3000 -EA SilentlyContinue | Select-Object -ExpandProperty OwningProcess | Sort-Object -Unique | ForEach-Object { Stop-Process -Id $_ -Force -EA SilentlyContinue }; Start-Sleep -Seconds 1; Write-Host 'Port 3000 cleared'\"",
     "dev": "nodemon index.js",
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "node --test"
   },
   "dependencies": {
     "@google/generative-ai": "^0.24.1",
@@ -21,7 +21,6 @@
     "jsonwebtoken": "^9.0.3",
     "mongodb": "^7.1.0",
     "mongoose": "^9.2.2",
-    "nodemailer": "^8.0.1",
     "nodemon": "^3.1.14",
     "passport": "^0.7.0",
     "passport-jwt": "^4.0.1",

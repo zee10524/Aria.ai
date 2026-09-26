@@ -2,7 +2,7 @@ import { useEffect, useRef, useState, useCallback } from "react";
 import { io } from "socket.io-client";
 import API from "../lib/api";
 
-const SOCKET_URL = "http://localhost:3000";
+const SOCKET_URL = import.meta.env.VITE_SOCKET_URL || "http://localhost:3000";
 
 export function useSocket(roomId) {
   const socketRef = useRef(null);
@@ -14,6 +14,9 @@ export function useSocket(roomId) {
   const [isAITyping, setIsAITyping] = useState(false);
   const [roomName, setRoomName] = useState("");
   const [error, setError] = useState(null);
+  // connectionError carries { message, type } where type is "auth" (go to /login)
+  // or "server_error" (transient; socket.io will retry automatically).
+  const [connectionError, setConnectionError] = useState(null);
 
   // Fetch all room members from REST API once on mount
   useEffect(() => {
@@ -37,6 +40,7 @@ export function useSocket(roomId) {
     socket.on("connect", () => {
       setIsConnected(true);
       setError(null);
+      setConnectionError(null);
       socket.emit("room:join", { roomId });
     });
 
@@ -45,8 +49,19 @@ export function useSocket(roomId) {
     });
 
     socket.on("connect_error", (err) => {
-      setError(err.message);
       setIsConnected(false);
+      const errType = err.data?.type;
+      if (errType === "auth") {
+        // Stop socket.io from retrying - the token will not become valid on its own.
+        socket.disconnect();
+        setConnectionError({ message: err.message, type: "auth" });
+      } else {
+        // Transient server failure - let socket.io reconnect automatically.
+        setConnectionError({
+          message: "Server is temporarily unavailable. Retrying…",
+          type: "server_error",
+        });
+      }
     });
 
     socket.on("error", ({ message }) => {
@@ -133,6 +148,7 @@ export function useSocket(roomId) {
     isAITyping,
     roomName,
     error,
+    connectionError,
     sendMessage,
     startTyping,
     stopTyping,

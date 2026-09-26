@@ -1,18 +1,11 @@
 const Room = require("../models/Room");
 const RoomMembership = require("../models/RoomMembership");
 const mongoose = require("mongoose");
-
-const ROOM_CODE_LENGTH = 6;
-const ROOM_CODE_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
-
-const generateRoomCode = () => {
-  let code = "";
-  for (let i = 0; i < ROOM_CODE_LENGTH; i += 1) {
-    const index = Math.floor(Math.random() * ROOM_CODE_ALPHABET.length);
-    code += ROOM_CODE_ALPHABET[index];
-  }
-  return code;
-};
+const {
+  generateRoomCode,
+  validateRoomFields,
+  markMembership,
+} = require("../utils/roomHelpers");
 
 const createUniqueRoomCode = async () => {
   for (let attempts = 0; attempts < 10; attempts += 1) {
@@ -25,10 +18,16 @@ const createUniqueRoomCode = async () => {
 
 exports.createRoom = async (req, res) => {
   try {
-    const { name } = req.body;
+    const { name, description, tags, isPrivate } = req.body;
 
     if (!name || !name.trim()) {
       return res.status(400).json({ message: "Room name is required" });
+    }
+
+    const parsedTags = Array.isArray(tags) ? tags : [];
+    const validationError = validateRoomFields({ description, tags: parsedTags });
+    if (validationError) {
+      return res.status(400).json({ message: validationError });
     }
 
     const roomCode = await createUniqueRoomCode();
@@ -37,14 +36,22 @@ exports.createRoom = async (req, res) => {
       name: name.trim(),
       code: roomCode,
       owner: req.user._id,
+      description: typeof description === "string" ? description.trim() : "",
+      tags: parsedTags.map((t) => String(t).trim()).filter(Boolean),
+      isPrivate: isPrivate !== false,
     });
 
-    await RoomMembership.create({
-      room: room._id,
-      user: req.user._id,
-      role: "owner",
-      status: "active",
-    });
+    try {
+      await RoomMembership.create({
+        room: room._id,
+        user: req.user._id,
+        role: "owner",
+        status: "active",
+      });
+    } catch (membershipError) {
+      await Room.deleteOne({ _id: room._id });
+      throw membershipError;
+    }
 
     return res.status(201).json({
       message: "Room created",
@@ -110,13 +117,15 @@ exports.getRoomMembers = async (req, res) => {
       .sort({ joinedAt: 1 })
       .lean();
 
-    const members = memberships.map((m) => ({
-      userId: m.user._id,
-      username: m.user.username,
-      email: m.user.email,
-      role: m.role,
-      joinedAt: m.joinedAt,
-    }));
+    const members = memberships
+      .filter((m) => m.user)
+      .map((m) => ({
+        userId: m.user._id,
+        username: m.user.username,
+        email: m.user.email,
+        role: m.role,
+        joinedAt: m.joinedAt,
+      }));
 
     return res.json({ members });
   } catch (error) {
@@ -202,6 +211,27 @@ exports.joinRoomByCode = async (req, res) => {
     });
   } catch (error) {
     return res.status(500).json({ message: "Failed to join room" });
+  }
+};
+
+exports.listPublicRooms = async (req, res) => {
+  try {
+    const [publicRooms, memberships] = await Promise.all([
+      Room.find({ isPrivate: false, isActive: true })
+        .populate("owner", "_id username")
+        .sort({ lastActiveAt: -1 })
+        .lean(),
+      RoomMembership.find({ user: req.user._id, status: "active" })
+        .select("room")
+        .lean(),
+    ]);
+
+    const memberRoomIds = new Set(memberships.map((m) => String(m.room)));
+    const rooms = markMembership(publicRooms, memberRoomIds);
+
+    return res.json({ rooms });
+  } catch (error) {
+    return res.status(500).json({ message: "Failed to fetch public rooms" });
   }
 };
 

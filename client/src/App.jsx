@@ -4,6 +4,7 @@ import Login from "./pages/login";
 import Dashboard from "./pages/dashboard";
 import LandingPage from "./pages/LandingPage";
 import CreateRoom from "./pages/newRoom";
+import Explore from "./pages/Explore";
 import Profile from "./pages/profile";
 import ChatRoom from "./pages/chatRoom";
 
@@ -15,6 +16,7 @@ function App() {
       <Route path="/login" element={<Login />} />
       <Route path="/dashboard" element={<Dashboard />} />
       <Route path="/create-room" element={<CreateRoom />} />
+      <Route path="/explore" element={<Explore />} />
       <Route path="/profile" element={<Profile />} />
       <Route path="/room/:roomId" element={<ChatRoom />} />
     </Routes>

@@ -6,6 +6,7 @@ const cors = require("cors");
 require("dotenv").config();
 const connectDB = require("./config/db");
 const registerChatHandlers = require("./socket/chatHandler");
+const { notFoundHandler, errorHandler } = require("./utils/errorMiddleware");
 
 const app = express();
 const server = http.createServer(app);
@@ -34,10 +35,18 @@ require("./passport")(passport);
 
 app.use("/api/auth", require("./routes/auth"));
 app.use("/api/rooms", require("./routes/rooms"));
+app.use("/api/users", require("./routes/users"));
+
+// 404 for any /api path that did not match a real route
+app.use("/api", notFoundHandler);
 
 app.get("/", (req, res) => {
   res.send("Server Running");
 });
+
+// Global error handler - must be last. Returns JSON for every /api error
+// and logs the full error server-side. Never leaks stack traces to the client.
+app.use(errorHandler);
 
 // Register Socket.IO chat handlers
 registerChatHandlers(io);

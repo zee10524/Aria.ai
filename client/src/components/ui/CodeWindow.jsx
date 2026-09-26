@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { motion } from "framer-motion";
+import { motion as Motion } from "framer-motion";
 
 // Syntax token types → Tailwind/CSS colour classes per mode
 const TOKEN_COLOR = {
@@ -75,7 +75,6 @@ export default function CodeWindow({ dark }) {
   // Typewriter — runs once on mount
   useEffect(() => {
     idxRef.current = 0;
-    setRevealed(0);
     const speed = 28; // ms per char
     const timer = setInterval(() => {
       idxRef.current += 1;
@@ -114,7 +113,7 @@ export default function CodeWindow({ dark }) {
   const lineNumColor = dark ? "#4b5563" : "#9ca3af";
 
   return (
-    <motion.div
+    <Motion.div
       initial={{ opacity: 0, y: 20, scale: 0.97 }}
       animate={{ opacity: 1, y: 0, scale: 1 }}
       transition={{ duration: 0.7, delay: 0.5, ease: "easeOut" }}
@@ -233,6 +232,6 @@ export default function CodeWindow({ dark }) {
         </span>
         <span>Ln {Math.min(lines.length, CODE_LINES.length)}</span>
       </div>
-    </motion.div>
+    </Motion.div>
   );
 }

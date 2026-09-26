@@ -13,7 +13,6 @@ module.exports = function (passport) {
           const normalizedEmail = email.trim().toLowerCase();
           const user = await User.findOne({ email: normalizedEmail });
           if (!user) return done(null, false);
-          if (!user.isVerified) return done(null, false);
 
           const match = await bcrypt.compare(password, user.password);
           if (!match) return done(null, false);

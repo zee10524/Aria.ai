@@ -18,6 +18,16 @@ const roomSchema = new mongoose.Schema(
       required: true,
       index: true,
     },
+    description: { type: String, default: "", maxlength: 300, trim: true },
+    tags: {
+      type: [{ type: String, maxlength: 24, trim: true }],
+      default: [],
+      validate: {
+        validator: (arr) => arr.length <= 8,
+        message: "A room can have at most 8 tags",
+      },
+    },
+    isPrivate: { type: Boolean, default: true },
     isActive: { type: Boolean, default: true },
     lastActiveAt: { type: Date, default: Date.now },
   },

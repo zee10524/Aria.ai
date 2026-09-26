@@ -1,35 +1,52 @@
-const jwt = require("jsonwebtoken");
 const { GoogleGenerativeAI } = require("@google/generative-ai");
 const User = require("../models/User");
 const Room = require("../models/Room");
 const RoomMembership = require("../models/RoomMembership");
 const Message = require("../models/Message");
+const { makeSocketAuthMiddleware } = require("../utils/socketAuth");
 
-const genAI = new GoogleGenerativeAI(
-  process.env.GEMINI_API_KEY || "AIzaSyCud4PpmMLv_73VlfCkGfiBDfcYj51mHu8"
-);
-
-const AI_MODEL = "gemma-3-1b-it";
-
-// Authenticate socket connection via JWT in handshake
-async function authenticateSocket(socket, next) {
-  try {
-    const token =
-      socket.handshake.auth?.token ||
-      socket.handshake.headers?.authorization?.replace("Bearer ", "");
-
-    if (!token) return next(new Error("Authentication required"));
-
-    const payload = jwt.verify(token, process.env.JWT_SECRET);
-    const user = await User.findById(payload.id).select("_id username email");
-    if (!user) return next(new Error("User not found"));
-
-    socket.user = user;
-    next();
-  } catch {
-    next(new Error("Invalid token"));
-  }
+if (!process.env.GEMINI_API_KEY) {
+  throw new Error("GEMINI_API_KEY environment variable is required");
 }
+
+const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+
+const AI_MODEL = process.env.GEMINI_MODEL || "gemini-3.5-flash-lite";
+
+// Tracks in-flight @ai/@gemini requests per room channel so the typing
+// indicator only clears once every concurrent request has finished.
+const aiTypingCounters = new Map();
+
+function incrementAiTyping(channelName) {
+  aiTypingCounters.set(channelName, (aiTypingCounters.get(channelName) || 0) + 1);
+}
+
+function decrementAiTyping(channelName) {
+  const count = Math.max((aiTypingCounters.get(channelName) || 0) - 1, 0);
+  if (count === 0) {
+    aiTypingCounters.delete(channelName);
+  } else {
+    aiTypingCounters.set(channelName, count);
+  }
+  return count;
+}
+
+// De-duplicates by userId so a user connected from multiple tabs/devices
+// only appears once in the online users list.
+function getOnlineUsers(sockets) {
+  const usersByUserId = new Map();
+  sockets.forEach((s) => {
+    usersByUserId.set(s.user._id.toString(), {
+      userId: s.user._id,
+      username: s.user.username,
+    });
+  });
+  return Array.from(usersByUserId.values());
+}
+
+const authenticateSocket = makeSocketAuthMiddleware(
+  (id) => User.findById(id).select("_id username email")
+);
 
 // Get AI response from Gemini with retry logic
 async function getAIResponse(userMessage, roomName, chatHistory) {
@@ -103,7 +120,19 @@ module.exports = function registerChatHandlers(io) {
         const prevRooms = Array.from(socket.rooms).filter(
           (r) => r !== socket.id
         );
-        prevRooms.forEach((r) => socket.leave(r));
+        for (const prevRoom of prevRooms) {
+          socket.leave(prevRoom);
+
+          socket.to(prevRoom).emit("room:userLeft", {
+            userId: socket.user._id,
+            username: socket.user.username,
+          });
+
+          const prevRoomSockets = await io.in(prevRoom).fetchSockets();
+          io.in(prevRoom).emit("room:onlineUsers", {
+            users: getOnlineUsers(prevRoomSockets),
+          });
+        }
 
         const channelName = `room:${roomId}`;
         socket.join(channelName);
@@ -131,11 +160,9 @@ module.exports = function registerChatHandlers(io) {
 
         // Emit current online users in this room
         const socketsInRoom = await io.in(channelName).fetchSockets();
-        const onlineUsers = socketsInRoom.map((s) => ({
-          userId: s.user._id,
-          username: s.user.username,
-        }));
-        io.in(channelName).emit("room:onlineUsers", { users: onlineUsers });
+        io.in(channelName).emit("room:onlineUsers", {
+          users: getOnlineUsers(socketsInRoom),
+        });
 
         console.log(
           `${socket.user.username} joined room channel ${channelName}`
@@ -158,7 +185,7 @@ module.exports = function registerChatHandlers(io) {
         });
 
         if (!membership) {
-          socket.emit("error", { message: "Access denied" });
+          socket.emit("error", { message: "Access denied to this room" });
           return;
         }
 
@@ -188,44 +215,50 @@ module.exports = function registerChatHandlers(io) {
           const userQuery = trimmedContent.replace(aiTriggerRegex, "").trim();
 
           // Emit typing indicator for AI
+          incrementAiTyping(channelName);
           io.in(channelName).emit("ai:typing", { isTyping: true });
 
-          // Fetch recent history for context
-          const recentMessages = await Message.find({ room: roomId })
-            .sort({ createdAt: -1 })
-            .limit(10)
-            .populate("sender", "username")
-            .lean();
+          try {
+            // Fetch recent history for context
+            const recentMessages = await Message.find({ room: roomId })
+              .sort({ createdAt: -1 })
+              .limit(10)
+              .populate("sender", "username")
+              .lean();
 
-          const history = recentMessages.reverse().map((m) => ({
-            type: m.type,
-            content: m.content,
-            senderName: m.sender?.username || "User",
-          }));
+            const history = recentMessages.reverse().map((m) => ({
+              type: m.type,
+              content: m.content,
+              senderName: m.sender?.username || "User",
+            }));
 
-          const roomDoc = await Room.findById(roomId);
-          const aiResponse = await getAIResponse(
-            userQuery,
-            roomDoc?.name || "Dev Room",
-            history
-          );
+            const roomDoc = await Room.findById(roomId);
+            const aiResponse = await getAIResponse(
+              userQuery,
+              roomDoc?.name || "Dev Room",
+              history
+            );
 
-          const aiMessage = await Message.create({
-            room: roomId,
-            sender: null,
-            content: aiResponse,
-            type: "ai",
-            aiTriggeredBy: socket.user._id,
-          });
+            const aiMessage = await Message.create({
+              room: roomId,
+              sender: null,
+              content: aiResponse,
+              type: "ai",
+              aiTriggeredBy: socket.user._id,
+            });
 
-          const populatedAiMessage = await Message.findById(aiMessage._id)
-            .populate("aiTriggeredBy", "_id username")
-            .lean();
+            const populatedAiMessage = await Message.findById(aiMessage._id)
+              .populate("aiTriggeredBy", "_id username")
+              .lean();
 
-          io.in(channelName).emit("ai:typing", { isTyping: false });
-          io.in(channelName).emit("message:new", {
-            message: populatedAiMessage,
-          });
+            io.in(channelName).emit("message:new", {
+              message: populatedAiMessage,
+            });
+          } finally {
+            if (decrementAiTyping(channelName) === 0) {
+              io.in(channelName).emit("ai:typing", { isTyping: false });
+            }
+          }
         }
       } catch (err) {
         console.error("message:send error:", err.message);
@@ -262,11 +295,9 @@ module.exports = function registerChatHandlers(io) {
       });
 
       const socketsInRoom = await io.in(channelName).fetchSockets();
-      const onlineUsers = socketsInRoom.map((s) => ({
-        userId: s.user._id,
-        username: s.user.username,
-      }));
-      io.in(channelName).emit("room:onlineUsers", { users: onlineUsers });
+      io.in(channelName).emit("room:onlineUsers", {
+        users: getOnlineUsers(socketsInRoom),
+      });
     });
 
     // Handle disconnect
@@ -281,11 +312,9 @@ module.exports = function registerChatHandlers(io) {
         });
 
         const socketsInRoom = await io.in(channelName).fetchSockets();
-        const onlineUsers = socketsInRoom.map((s) => ({
-          userId: s.user._id,
-          username: s.user.username,
-        }));
-        io.in(channelName).emit("room:onlineUsers", { users: onlineUsers });
+        io.in(channelName).emit("room:onlineUsers", {
+          users: getOnlineUsers(socketsInRoom),
+        });
       }
     });
   });
