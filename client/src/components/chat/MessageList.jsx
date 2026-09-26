@@ -106,14 +106,15 @@ function AIMessage({ msg }) {
           <div className="prose prose-invert prose-sm max-w-none text-gray-300">
             <ReactMarkdown
               components={{
-                code({ inline, children, ...props }) {
-                  return inline ? (
+                code({ className, children, ...props }) {
+                  const isInline = !className;
+                  return isInline ? (
                     <code className="bg-[#2A2A35] px-1 py-0.5 rounded text-lime-300 text-xs" {...props}>
                       {children}
                     </code>
                   ) : (
                     <pre className="bg-[#1E1E24] border border-gray-700 rounded-lg p-4 text-xs overflow-x-auto my-3">
-                      <code {...props}>{children}</code>
+                      <code className={className} {...props}>{children}</code>
                     </pre>
                   );
                 },

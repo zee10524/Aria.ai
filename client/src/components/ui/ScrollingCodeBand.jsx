@@ -1,4 +1,4 @@
-import { motion } from "framer-motion";
+import { motion as Motion } from "framer-motion";
 
 const BAND_TEXT =
   "01001000 0x4155 const=>async 10110101 {}[]() 0xDEAD 11001010 await=>return 01110011 function 0xFF DFFF5E 10101010 export default 01100110 Promise<void> 0x1A2B ";
@@ -31,7 +31,7 @@ export default function ScrollingCodeBand({ dark, reverse = false, opacity = 1 }
       }}
       aria-hidden="true"
     >
-      <motion.div
+      <Motion.div
         className="flex whitespace-nowrap"
         animate={{ x: reverse ? ["0%", "-50%"] : ["-50%", "0%"] }}
         transition={{
@@ -42,7 +42,7 @@ export default function ScrollingCodeBand({ dark, reverse = false, opacity = 1 }
         style={{ color: textColor }}
       >
         {BAND}
-      </motion.div>
+      </Motion.div>
     </div>
   );
 }

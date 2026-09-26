@@ -20,9 +20,10 @@ export default function BitFlipText({
   dark,
   className = "",
   style = {},
-  as: Tag = "span",
+  as = "span",
   delay = 0,
 }) {
+  const Tag = as;
   const [displayed, setDisplayed] = useState(text);
   const ref = useRef(null);
   const triggered = useRef(false);

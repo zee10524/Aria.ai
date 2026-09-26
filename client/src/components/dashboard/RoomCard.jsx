@@ -1,4 +1,6 @@
+import { useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { Copy, Check } from "lucide-react";
 
 function timeAgo(dateStr) {
   if (!dateStr) return null;
@@ -13,30 +15,53 @@ function timeAgo(dateStr) {
 
 export default function RoomCard({ room }) {
   const navigate = useNavigate();
-  const roomId = room._id || room.id;
+  const [copied, setCopied] = useState(false);
 
-  // Support both real DB fields and mock data fields
-  const title = room.name || room.title || "Unnamed Room";
-  const lastActive = timeAgo(room.lastActiveAt) || room.lastActive || null;
+  const handleCopyCode = (e) => {
+    e.stopPropagation();
+    navigator.clipboard.writeText(room.code).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    });
+  };
+
+  const title = room.name || "Unnamed Room";
+  const lastActive = timeAgo(room.lastActiveAt);
   const description = room.description || null;
-  const tags = room.tags || (room.code ? [`Code: ${room.code}`] : []);
-  const roleLabel = room.membershipRole === "owner" ? "Owner" : room.membershipRole === "member" ? "Member" : null;
+  const tags = room.tags || [];
+  const roleLabel =
+    room.membershipRole === "owner"
+      ? "Owner"
+      : room.membershipRole === "member"
+      ? "Member"
+      : null;
 
   return (
     <div
       className="bg-[#18181F] border border-[#1F2937] rounded-xl p-6 hover:border-lime-400/50 transition group cursor-pointer"
-      onClick={() => navigate(`/room/${roomId}`)}
+      onClick={() => navigate(`/room/${room._id}`)}
     >
       <div className="mb-4">
-        <div className="flex items-start justify-between gap-2">
+        <div className="flex items-start justify-between gap-2 flex-wrap">
           <h3 className="text-lg font-semibold group-hover:text-lime-400 transition truncate">
             {title}
           </h3>
-          {roleLabel && (
-            <span className="text-[10px] px-2 py-0.5 rounded-full border border-lime-400/30 text-lime-400 bg-lime-400/10 flex-shrink-0">
-              {roleLabel}
+          <div className="flex items-center gap-1.5 flex-shrink-0">
+            <span
+              className={`text-[10px] px-2 py-0.5 rounded-full border font-medium ${
+                room.isPrivate === false
+                  ? "border-blue-400/30 text-blue-400 bg-blue-400/10"
+                  : "border-gray-600/30 text-gray-500 bg-gray-600/10"
+              }`}
+            >
+              {room.isPrivate === false ? "Public" : "Private"}
             </span>
-          )}
+            {roleLabel && (
+              <span className="text-[10px] px-2 py-0.5 rounded-full border border-lime-400/30 text-lime-400 bg-lime-400/10">
+                {roleLabel}
+              </span>
+            )}
+          </div>
         </div>
         {lastActive && (
           <p className="text-xs text-gray-500 mt-1">Last active: {lastActive}</p>
@@ -44,11 +69,11 @@ export default function RoomCard({ room }) {
       </div>
 
       {description && (
-        <p className="text-sm text-gray-400 mb-6">{description}</p>
+        <p className="text-sm text-gray-400 mb-4 line-clamp-2">{description}</p>
       )}
 
       {tags.length > 0 && (
-        <div className="flex flex-wrap gap-2 mb-6">
+        <div className="flex flex-wrap gap-2 mb-4">
           {tags.map((tag, i) => (
             <span
               key={i}
@@ -60,9 +85,30 @@ export default function RoomCard({ room }) {
         </div>
       )}
 
-      <div className="text-xs text-lime-400 font-medium">
-        ● {room.online || "Enter room"}
-      </div>
+      {room.isPrivate !== false && room.code && (
+        <div
+          className="flex items-center gap-2 mt-1 group/code"
+          onClick={(e) => e.stopPropagation()}
+        >
+          <span className="text-xs text-gray-500">Invite code:</span>
+          <span className="font-mono text-xs text-gray-300 tracking-widest">
+            {room.code}
+          </span>
+          <button
+            onClick={handleCopyCode}
+            title="Copy invite code"
+            className="text-gray-600 hover:text-lime-400 transition flex-shrink-0"
+          >
+            {copied ? (
+              <Check size={13} className="text-lime-400" />
+            ) : (
+              <Copy size={13} />
+            )}
+          </button>
+        </div>
+      )}
+
+      <div className="text-xs text-lime-400 font-medium mt-1">Enter room</div>
     </div>
   );
 }
