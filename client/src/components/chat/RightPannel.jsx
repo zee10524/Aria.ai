@@ -1,6 +1,11 @@
-import { Users } from "lucide-react";
+import { useState } from "react";
+import { Users, Sparkles, Loader2 } from "lucide-react";
+import API from "../../lib/api";
 
-export default function RightPanel({ allMembers = [], onlineUsers = [] }) {
+export default function RightPanel({ allMembers = [], onlineUsers = [], roomId }) {
+  const [catchUpState, setCatchUpState] = useState(null); // null | "loading" | { summary, messageCount, since }
+  const [catchUpError, setCatchUpError] = useState(null);
+
   const onlineIds = new Set(
     onlineUsers.map((u) => String(u.userId))
   );
@@ -16,6 +21,26 @@ export default function RightPanel({ allMembers = [], onlineUsers = [] }) {
   ];
 
   const onlineCount = mergedMembers.filter((m) => m.isOnline).length;
+
+  const handleCatchUp = async () => {
+    if (!roomId || catchUpState === "loading") return;
+    setCatchUpState("loading");
+    setCatchUpError(null);
+    try {
+      const { data } = await API.post(`/rooms/${roomId}/catch-up`);
+      setCatchUpState(data);
+    } catch (err) {
+      setCatchUpError(
+        err.response?.data?.message || "Failed to get summary. Try again."
+      );
+      setCatchUpState(null);
+    }
+  };
+
+  const handleDismiss = () => {
+    setCatchUpState(null);
+    setCatchUpError(null);
+  };
 
   return (
     <aside className="w-60 bg-[#15151A] border-l border-gray-800 hidden lg:flex flex-col">
@@ -70,9 +95,68 @@ export default function RightPanel({ allMembers = [], onlineUsers = [] }) {
         )}
       </div>
 
-      {/* Footer hint */}
-      <div className="p-4 border-t border-gray-800">
-        <p className="text-[10px] text-gray-600 text-center leading-relaxed">
+      {/* Catch-up panel */}
+      <div className="border-t border-gray-800 p-3 space-y-2">
+        {catchUpError && (
+          <p className="text-[10px] text-red-400 leading-relaxed">{catchUpError}</p>
+        )}
+
+        {catchUpState && catchUpState !== "loading" && (
+          <div className="rounded-lg bg-[#1a1a22] border border-gray-700 p-3 space-y-2">
+            <div className="flex items-center justify-between gap-1">
+              <span className="text-[10px] font-semibold text-lime-400 uppercase tracking-wider">
+                Catch-up
+              </span>
+              <button
+                onClick={handleDismiss}
+                className="text-gray-600 hover:text-gray-400 text-xs leading-none"
+                aria-label="Dismiss"
+              >
+                x
+              </button>
+            </div>
+            {catchUpState.messageCount === 0 ? (
+              <p className="text-[11px] text-gray-400 leading-relaxed">
+                {catchUpState.summary}
+              </p>
+            ) : (
+              <>
+                <p className="text-[11px] text-gray-300 leading-relaxed">
+                  {catchUpState.summary}
+                </p>
+                <p className="text-[10px] text-gray-600">
+                  {catchUpState.messageCount} message{catchUpState.messageCount !== 1 ? "s" : ""} since last visit
+                  {catchUpState.since
+                    ? ` (${new Date(catchUpState.since).toLocaleString()})`
+                    : ""}
+                </p>
+              </>
+            )}
+          </div>
+        )}
+
+        <button
+          onClick={handleCatchUp}
+          disabled={!roomId || catchUpState === "loading"}
+          className="w-full flex items-center justify-center gap-1.5 py-1.5 px-3 rounded-md
+            bg-lime-400/10 hover:bg-lime-400/20 border border-lime-400/20 hover:border-lime-400/40
+            text-lime-400 text-[11px] font-medium transition disabled:opacity-50 disabled:cursor-not-allowed"
+        >
+          {catchUpState === "loading" ? (
+            <>
+              <Loader2 size={12} className="animate-spin" />
+              Summarising...
+            </>
+          ) : (
+            <>
+              <Sparkles size={12} />
+              Catch me up
+            </>
+          )}
+        </button>
+
+        {/* Footer hint */}
+        <p className="text-[10px] text-gray-600 text-center leading-relaxed pt-1">
           Type <span className="text-lime-400 font-mono">@ai</span> or{" "}
           <span className="text-lime-400 font-mono">@gemini</span> followed by your
           question to get an AI answer in chat.

@@ -37,6 +37,8 @@ app.use("/api/auth", require("./routes/auth"));
 app.use("/api/rooms", require("./routes/rooms"));
 app.use("/api/users", require("./routes/users"));
 
+require("./socket/boardHandler")(io, app);
+
 // 404 for any /api path that did not match a real route
 app.use("/api", notFoundHandler);
 

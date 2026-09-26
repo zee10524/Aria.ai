@@ -1,6 +1,6 @@
-import { Hash, Wifi, WifiOff, LogOut } from "lucide-react";
+import { Hash, Wifi, WifiOff, LogOut, PenSquare, MessageSquare } from "lucide-react";
 
-export default function ChatHeader({ channel, isConnected, onlineCount, onLeave }) {
+export default function ChatHeader({ channel, isConnected, onlineCount, onLeave, showBoard, onToggleBoard }) {
   if (!channel) return null;
 
   const hasMeta = channel.description || (channel.tags && channel.tags.length > 0);
@@ -47,12 +47,27 @@ export default function ChatHeader({ channel, isConnected, onlineCount, onLeave 
           </div>
         </div>
 
-        <div className="flex items-center gap-4 text-gray-500 shrink-0">
+        <div className="flex items-center gap-3 text-gray-500 shrink-0">
           {typeof onlineCount === "number" && (
             <span className="text-xs text-gray-400">
               <span className="inline-block w-1.5 h-1.5 rounded-full bg-lime-400 mr-1 align-middle" />
               {onlineCount} online
             </span>
+          )}
+          {onToggleBoard && (
+            <button
+              type="button"
+              onClick={onToggleBoard}
+              title={showBoard ? "Back to Chat" : "Open Board"}
+              className={`flex items-center gap-1 text-xs px-2.5 py-1 rounded-md border transition ${
+                showBoard
+                  ? "bg-lime-400/20 text-lime-400 border-lime-400/40 hover:bg-lime-400/30"
+                  : "text-gray-400 border-gray-700 hover:text-gray-200 hover:bg-white/5"
+              }`}
+            >
+              {showBoard ? <MessageSquare size={14} /> : <PenSquare size={14} />}
+              <span className="hidden sm:inline">{showBoard ? "Chat" : "Board"}</span>
+            </button>
           )}
           {isConnected !== undefined && (
             isConnected

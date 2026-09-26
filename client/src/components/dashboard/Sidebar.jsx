@@ -79,6 +79,7 @@ export default function Sidebar({ activePage = "dashboard" }) {
                   key={room._id}
                   color="bg-lime-400"
                   label={room.name}
+                  unreadCount={room.unreadCount || 0}
                   onClick={() => navigate(`/room/${room._id}`)}
                 />
               ))
@@ -107,7 +108,7 @@ function SidebarItem({ icon, label, active = false, onClick }) {
   );
 }
 
-function RoomItem({ color, label, onClick }) {
+function RoomItem({ color, label, unreadCount = 0, onClick }) {
   return (
     <MotionDiv
       variants={itemVariants}
@@ -117,8 +118,13 @@ function RoomItem({ color, label, onClick }) {
       onClick={onClick}
       className="flex items-center px-3 py-2 rounded-md text-gray-400 hover:bg-[#1F1F27] hover:text-white transition cursor-pointer"
     >
-      <span className={`w-2 h-2 rounded-full ${color} mr-3`} />
-      <span className="truncate">{label}</span>
+      <span className={`w-2 h-2 rounded-full ${color} mr-3 flex-shrink-0`} />
+      <span className="truncate flex-1">{label}</span>
+      {unreadCount > 0 && (
+        <span className="ml-2 flex-shrink-0 min-w-[18px] h-[18px] px-1 rounded-full bg-lime-400 text-black text-[10px] font-bold flex items-center justify-center">
+          {unreadCount > 99 ? "99+" : unreadCount}
+        </span>
+      )}
     </MotionDiv>
   );
 }

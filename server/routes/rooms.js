@@ -2,6 +2,7 @@ const router = require("express").Router();
 const passport = require("passport");
 const roomController = require("../controllers/roomController");
 const messageController = require("../controllers/messageController");
+const { catchUp } = require("../controllers/catchUpController");
 
 const requireAuth = passport.authenticate("jwt", { session: false });
 
@@ -13,5 +14,6 @@ router.get("/:roomId/members", requireAuth, roomController.getRoomMembers);
 router.post("/join", requireAuth, roomController.joinRoomByCode);
 router.post("/:roomId/leave", requireAuth, roomController.leaveRoom);
 router.get("/:roomId/messages", requireAuth, messageController.getMessages);
+router.post("/:roomId/catch-up", requireAuth, catchUp);
 
 module.exports = router;

@@ -1,5 +1,6 @@
 const Room = require("../models/Room");
 const RoomMembership = require("../models/RoomMembership");
+const Message = require("../models/Message");
 const mongoose = require("mongoose");
 const {
   generateRoomCode,
@@ -78,12 +79,34 @@ exports.listMyRooms = async (req, res) => {
       })
       .sort({ updatedAt: -1 });
 
-    const rooms = memberships
-      .filter((membership) => membership.room)
-      .map((membership) => ({
-        ...membership.room.toObject(),
-        membershipRole: membership.role,
-      }));
+    const activeMemberships = memberships.filter((m) => m.room);
+
+    // Count unread messages per room in the database (no timestamps pulled to JS).
+    // Each membership has its own lastReadAt threshold, so we run one countDocuments
+    // per room in parallel.  Only integers come back across the wire.
+    const unreadCounts = await Promise.all(
+      activeMemberships.map(async (membership) => {
+        const query = {
+          room: membership.room._id,
+          sender: { $ne: req.user._id },
+        };
+        if (membership.lastReadAt) {
+          query.createdAt = { $gt: membership.lastReadAt };
+        }
+        const count = await Message.countDocuments(query);
+        return { roomId: String(membership.room._id), count };
+      })
+    );
+
+    const unreadByRoom = new Map(
+      unreadCounts.map(({ roomId, count }) => [roomId, count])
+    );
+
+    const rooms = activeMemberships.map((membership) => ({
+      ...membership.room.toObject(),
+      membershipRole: membership.role,
+      unreadCount: unreadByRoom.get(String(membership.room._id)) ?? 0,
+    }));
 
     return res.json({ rooms });
   } catch (error) {

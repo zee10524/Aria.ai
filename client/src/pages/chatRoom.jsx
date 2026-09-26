@@ -8,12 +8,25 @@ import ChatHeader from "../components/chat/ChatHeader.jsx";
 import MessageList from "../components/chat/MessageList";
 import MessageComposer from "../components/chat/MessageComposer";
 import RightPanel from "../components/chat/RightPannel";
+import WhiteBoard from "../components/chat/WhiteBoard.jsx";
+
+// Decode the JWT payload to get the current user's id.
+function myUserId() {
+  const token = localStorage.getItem("token");
+  if (!token) return null;
+  try {
+    return JSON.parse(atob(token.split(".")[1])).id;
+  } catch {
+    return null;
+  }
+}
 
 export default function ChatRoom() {
   const { roomId } = useParams();
   const navigate = useNavigate();
   const bottomRef = useRef(null);
   const [roomDetails, setRoomDetails] = useState(null);
+  const [showBoard, setShowBoard] = useState(false);
 
   const {
     isConnected,
@@ -25,9 +38,20 @@ export default function ChatRoom() {
     roomName,
     error,
     connectionError,
+    replyTo,
+    setReplyTo,
     sendMessage,
+    reactToMessage,
     startTyping,
     stopTyping,
+    boardElements,
+    boardCursors,
+    initBoard,
+    addBoardElement,
+    removeBoardElements,
+    undoBoard,
+    clearBoard,
+    sendCursorPos,
   } = useSocket(roomId);
 
   /* Fetch room details (description, tags) from the API */
@@ -37,6 +61,11 @@ export default function ChatRoom() {
       .then((res) => setRoomDetails(res.data.room))
       .catch(() => {}); // degrade gracefully: header will still show the name
   }, [roomId]);
+
+  /* Load board state from REST whenever the board view is opened */
+  useEffect(() => {
+    if (showBoard) initBoard();
+  }, [showBoard, initBoard]);
 
   /* Force dark mode */
   useEffect(() => {
@@ -99,6 +128,8 @@ export default function ChatRoom() {
           isConnected={isConnected}
           onlineCount={onlineUsers.length}
           onLeave={handleLeaveRoom}
+          showBoard={showBoard}
+          onToggleBoard={() => setShowBoard((v) => !v)}
         />
 
         {error && error !== "Access denied to this room" && (
@@ -113,24 +144,47 @@ export default function ChatRoom() {
           </div>
         )}
 
-        <MessageList
-          messages={messages}
-          isAITyping={isAITyping}
-          typingUsers={typingUsers}
-          bottomRef={bottomRef}
-        />
-
-        <MessageComposer
-          onSend={sendMessage}
-          onTypingStart={startTyping}
-          onTypingStop={stopTyping}
-          disabled={!isConnected}
-        />
+        {showBoard ? (
+          <WhiteBoard
+            roomId={roomId}
+            boardElements={boardElements}
+            boardCursors={boardCursors}
+            isOwner={
+              roomDetails
+                ? String(roomDetails.owner?._id ?? roomDetails.owner) === String(myUserId())
+                : false
+            }
+            onAddElement={addBoardElement}
+            onRemoveElements={removeBoardElements}
+            onUndo={undoBoard}
+            onClear={clearBoard}
+            onCursorMove={sendCursorPos}
+          />
+        ) : (
+          <>
+            <MessageList
+              messages={messages}
+              isAITyping={isAITyping}
+              typingUsers={typingUsers}
+              bottomRef={bottomRef}
+              onReply={setReplyTo}
+              onReact={reactToMessage}
+            />
+            <MessageComposer
+              onSend={sendMessage}
+              onTypingStart={startTyping}
+              onTypingStop={stopTyping}
+              disabled={!isConnected}
+              replyTo={replyTo}
+              onCancelReply={() => setReplyTo(null)}
+            />
+          </>
+        )}
 
       </main>
 
       {/* ===================== RIGHT PANEL ===================== */}
-      <RightPanel allMembers={allMembers} onlineUsers={onlineUsers} />
+      <RightPanel allMembers={allMembers} onlineUsers={onlineUsers} roomId={roomId} />
 
     </div>
   );

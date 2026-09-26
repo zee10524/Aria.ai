@@ -29,6 +29,7 @@ export default function RoomCard({ room }) {
   const lastActive = timeAgo(room.lastActiveAt);
   const description = room.description || null;
   const tags = room.tags || [];
+  const unreadCount = room.unreadCount || 0;
   const roleLabel =
     room.membershipRole === "owner"
       ? "Owner"
@@ -43,9 +44,16 @@ export default function RoomCard({ room }) {
     >
       <div className="mb-4">
         <div className="flex items-start justify-between gap-2 flex-wrap">
-          <h3 className="text-lg font-semibold group-hover:text-lime-400 transition truncate">
-            {title}
-          </h3>
+          <div className="flex items-center gap-2 min-w-0">
+            <h3 className="text-lg font-semibold group-hover:text-lime-400 transition truncate">
+              {title}
+            </h3>
+            {unreadCount > 0 && (
+              <span className="flex-shrink-0 min-w-[20px] h-5 px-1.5 rounded-full bg-lime-400 text-black text-[10px] font-bold flex items-center justify-center">
+                {unreadCount > 99 ? "99+" : unreadCount}
+              </span>
+            )}
+          </div>
           <div className="flex items-center gap-1.5 flex-shrink-0">
             <span
               className={`text-[10px] px-2 py-0.5 rounded-full border font-medium ${

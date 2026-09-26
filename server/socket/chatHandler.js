@@ -4,6 +4,7 @@ const Room = require("../models/Room");
 const RoomMembership = require("../models/RoomMembership");
 const Message = require("../models/Message");
 const { makeSocketAuthMiddleware } = require("../utils/socketAuth");
+const { toggleReaction, normalizeMessage } = require("../utils/messageHelpers");
 
 if (!process.env.GEMINI_API_KEY) {
   throw new Error("GEMINI_API_KEY environment variable is required");
@@ -110,6 +111,18 @@ module.exports = function registerChatHandlers(io) {
           return;
         }
 
+        // Read-tracking: record previous lastReadAt then update to now
+        const now = new Date();
+        await RoomMembership.updateOne(
+          { _id: membership._id },
+          {
+            $set: {
+              previousLastReadAt: membership.lastReadAt,
+              lastReadAt: now,
+            },
+          }
+        );
+
         const room = await Room.findOne({ _id: roomId, isActive: true });
         if (!room) {
           socket.emit("error", { message: "Room not found" });
@@ -145,10 +158,15 @@ module.exports = function registerChatHandlers(io) {
           .limit(50)
           .populate("sender", "_id username")
           .populate("aiTriggeredBy", "_id username")
+          .populate({
+            path: "replyTo",
+            select: "_id content type sender",
+            populate: { path: "sender", select: "_id username" },
+          })
           .lean();
 
         socket.emit("room:history", {
-          messages: messages.reverse(),
+          messages: messages.reverse().map(normalizeMessage),
           roomName: room.name,
         });
 
@@ -174,7 +192,7 @@ module.exports = function registerChatHandlers(io) {
     });
 
     // Send a chat message
-    socket.on("message:send", async ({ roomId, content }) => {
+    socket.on("message:send", async ({ roomId, content, replyTo }) => {
       try {
         if (!content || !content.trim()) return;
 
@@ -197,14 +215,22 @@ module.exports = function registerChatHandlers(io) {
           sender: socket.user._id,
           content: trimmedContent,
           type: "user",
+          replyTo: replyTo || null,
         });
 
         const populatedMessage = await Message.findById(message._id)
           .populate("sender", "_id username")
+          .populate({
+            path: "replyTo",
+            select: "_id content type sender",
+            populate: { path: "sender", select: "_id username" },
+          })
           .lean();
 
         const channelName = `room:${roomId}`;
-        io.in(channelName).emit("message:new", { message: populatedMessage });
+        io.in(channelName).emit("message:new", {
+          message: normalizeMessage(populatedMessage),
+        });
 
         // Update room's lastActiveAt
         await Room.findByIdAndUpdate(roomId, { lastActiveAt: new Date() });
@@ -252,7 +278,7 @@ module.exports = function registerChatHandlers(io) {
               .lean();
 
             io.in(channelName).emit("message:new", {
-              message: populatedAiMessage,
+              message: normalizeMessage(populatedAiMessage),
             });
           } finally {
             if (decrementAiTyping(channelName) === 0) {
@@ -283,11 +309,57 @@ module.exports = function registerChatHandlers(io) {
       });
     });
 
+    // Toggle a reaction on a message
+    socket.on("message:react", async ({ roomId, messageId, emoji }) => {
+      try {
+        if (!roomId || !messageId || !emoji) return;
+
+        const membership = await RoomMembership.findOne({
+          room: roomId,
+          user: socket.user._id,
+          status: "active",
+        });
+
+        if (!membership) {
+          socket.emit("error", { message: "Access denied to this room" });
+          return;
+        }
+
+        const msg = await Message.findById(messageId).lean();
+        if (!msg || String(msg.room) !== String(roomId)) {
+          socket.emit("error", { message: "Message not found" });
+          return;
+        }
+
+        const newReactions = toggleReaction(
+          msg.reactions || [],
+          emoji,
+          socket.user._id
+        );
+
+        await Message.findByIdAndUpdate(messageId, { reactions: newReactions });
+
+        io.in(`room:${roomId}`).emit("message:reactions", {
+          messageId,
+          reactions: newReactions,
+        });
+      } catch (err) {
+        console.error("message:react error:", err.message);
+        socket.emit("error", { message: "Failed to update reaction" });
+      }
+    });
+
     // Leave a room channel
     socket.on("room:leave", async ({ roomId }) => {
       const channelName = `room:${roomId}`;
       socket.leave(channelName);
       socket.currentRoom = null;
+
+      // Read-tracking: mark last read on leave
+      RoomMembership.updateOne(
+        { room: roomId, user: socket.user._id, status: "active" },
+        { $set: { lastReadAt: new Date() } }
+      ).catch(() => {});
 
       socket.to(channelName).emit("room:userLeft", {
         userId: socket.user._id,
@@ -305,6 +377,12 @@ module.exports = function registerChatHandlers(io) {
       console.log(`Socket disconnected: ${socket.user?.username} (${socket.id})`);
 
       if (socket.currentRoom) {
+        // Read-tracking: mark last read on disconnect
+        RoomMembership.updateOne(
+          { room: socket.currentRoom, user: socket.user._id, status: "active" },
+          { $set: { lastReadAt: new Date() } }
+        ).catch(() => {});
+
         const channelName = `room:${socket.currentRoom}`;
         socket.to(channelName).emit("room:userLeft", {
           userId: socket.user._id,

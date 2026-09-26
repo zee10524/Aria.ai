@@ -1,6 +1,7 @@
 const Message = require("../models/Message");
 const RoomMembership = require("../models/RoomMembership");
 const mongoose = require("mongoose");
+const { normalizeMessage } = require("../utils/messageHelpers");
 
 // GET /api/rooms/:roomId/messages?before=<messageId>&limit=50
 exports.getMessages = async (req, res) => {
@@ -33,9 +34,14 @@ exports.getMessages = async (req, res) => {
       .limit(Math.min(Number(limit), 100))
       .populate("sender", "_id username")
       .populate("aiTriggeredBy", "_id username")
+      .populate({
+        path: "replyTo",
+        select: "_id content type sender",
+        populate: { path: "sender", select: "_id username" },
+      })
       .lean();
 
-    return res.json({ messages: messages.reverse() });
+    return res.json({ messages: messages.reverse().map(normalizeMessage) });
   } catch (err) {
     console.error("getMessages error:", err.message);
     return res.status(500).json({ message: "Failed to fetch messages" });

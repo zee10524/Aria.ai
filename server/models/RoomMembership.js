@@ -28,6 +28,8 @@ const roomMembershipSchema = new mongoose.Schema(
     },
     joinedAt: { type: Date, default: Date.now },
     leftAt: Date,
+    lastReadAt: { type: Date, default: null },
+    previousLastReadAt: { type: Date, default: null },
   },
   { timestamps: true }
 );

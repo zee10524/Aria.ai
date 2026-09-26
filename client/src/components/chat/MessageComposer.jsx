@@ -1,9 +1,16 @@
-import { Send, Bot, WifiOff } from "lucide-react";
+import { Send, Bot, WifiOff, X, CornerUpLeft } from "lucide-react";
 import { useState, useRef, useCallback } from "react";
 
 const TYPING_DEBOUNCE_MS = 1000;
 
-export default function MessageComposer({ onSend, onTypingStart, onTypingStop, disabled }) {
+export default function MessageComposer({
+  onSend,
+  onTypingStart,
+  onTypingStop,
+  disabled,
+  replyTo,
+  onCancelReply,
+}) {
   const [text, setText] = useState("");
   const typingTimerRef = useRef(null);
   const isTypingRef = useRef(false);
@@ -53,6 +60,33 @@ export default function MessageComposer({ onSend, onTypingStart, onTypingStop, d
           <WifiOff size={12} /> Connecting…
         </div>
       )}
+
+      {/* Reply-to preview bar */}
+      {replyTo && (
+        <div className="flex items-start justify-between mb-2 px-3 py-2 bg-[#15151A] rounded-lg border border-lime-400/20 text-xs text-gray-400">
+          <div className="flex items-center gap-2 min-w-0">
+            <CornerUpLeft size={12} className="text-lime-400 flex-shrink-0" />
+            <span className="text-lime-400 font-semibold flex-shrink-0">
+              Replying to {replyTo.sender?.username || "Unknown"}
+            </span>
+            <span className="truncate">
+              {typeof replyTo.content === "string"
+                ? replyTo.content.slice(0, 80)
+                : ""}
+              {(replyTo.content?.length || 0) > 80 ? "…" : ""}
+            </span>
+          </div>
+          <button
+            type="button"
+            onClick={onCancelReply}
+            className="text-gray-500 hover:text-gray-200 transition flex-shrink-0 ml-2"
+            title="Cancel reply"
+          >
+            <X size={14} />
+          </button>
+        </div>
+      )}
+
       <div className="bg-[#15151A] rounded-xl border border-gray-700 focus-within:ring-1 focus-within:ring-lime-400/50">
         <div className="flex items-center gap-2 px-3 py-2 border-b border-gray-700">
           <button
@@ -66,7 +100,8 @@ export default function MessageComposer({ onSend, onTypingStart, onTypingStop, d
           <span className="ml-auto text-[10px] text-gray-500 font-mono">
             <kbd className="px-1 py-0.5 bg-gray-800 rounded">Enter</kbd> to send
             &nbsp;·&nbsp;
-            <kbd className="px-1 py-0.5 bg-gray-800 rounded">Shift+Enter</kbd> for newline
+            <kbd className="px-1 py-0.5 bg-gray-800 rounded">Shift+Enter</kbd>{" "}
+            for newline
           </span>
         </div>
 
@@ -74,7 +109,11 @@ export default function MessageComposer({ onSend, onTypingStart, onTypingStop, d
           value={text}
           onChange={handleChange}
           onKeyDown={handleKeyDown}
-          placeholder={disabled ? "Connecting to room…" : "Message the room or type @ai to ask Gemini…"}
+          placeholder={
+            disabled
+              ? "Connecting to room…"
+              : "Message the room or type @ai to ask Gemini…"
+          }
           disabled={disabled}
           className="w-full bg-transparent text-gray-200 resize-none p-4 focus:outline-none min-h-[70px] disabled:opacity-50"
         />
